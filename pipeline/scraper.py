@@ -1,6 +1,5 @@
 import requests
 from bs4 import BeautifulSoup
-import json
 
 url = "https://www.math.purdue.edu/academic/courses/oldexams.php?course=MA16200"
 response = requests.get(url)
