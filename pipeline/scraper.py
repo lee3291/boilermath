@@ -36,4 +36,10 @@ for link in all_links:
         else:
             examObj["exam"] = start_str + pdfLink
 
-print(json.dumps(ma16200, indent=2))
+for examName, examObj in ma16200.items():
+    if examObj["exam"] is not None:
+        url = examObj["exam"]
+        filepath = "pdfs/MA16200/" + examName + ".pdf"
+        response = requests.get(url)
+        with open(filepath, "wb") as f:
+            f.write(response.content)
