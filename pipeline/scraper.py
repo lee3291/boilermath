@@ -1,7 +1,10 @@
 import requests
 from bs4 import BeautifulSoup
 
-url = "https://www.math.purdue.edu/academic/courses/oldexams.php?course=MA16200"
+# change course name for different courses.
+course = "MA16200"
+
+url = f"https://www.math.purdue.edu/academic/courses/oldexams.php?course={course}"
 response = requests.get(url)
 
 if response.status_code == 200:
@@ -13,7 +16,7 @@ soup = BeautifulSoup(response.content, "html.parser")
 
 all_links = soup.find_all("a")
 
-ma16200 = {}
+courseDict = {}
 
 start_str = "https://www.math.purdue.edu"
 
@@ -23,10 +26,10 @@ for link in all_links:
         pdfName = pdfLink.split("file=")[1]
         examName = pdfName.replace("Ans-", "").replace("Sol-", "").replace(".pdf", "")
 
-        if examName not in ma16200:
-            ma16200[examName] = {"exam": None, "answer": None, "solution": None}
+        if examName not in courseDict:
+            courseDict[examName] = {"exam": None, "answer": None, "solution": None}
 
-        examObj = ma16200[examName]
+        examObj = courseDict[examName]
 
         if "Ans" in pdfName:
             examObj["answer"] = start_str + pdfLink
@@ -35,10 +38,10 @@ for link in all_links:
         else:
             examObj["exam"] = start_str + pdfLink
 
-for examName, examObj in ma16200.items():
+for examName, examObj in courseDict.items():
     if examObj["exam"] is not None:
         url = examObj["exam"]
-        filepath = "pdfs/MA16200/" + examName + ".pdf"
+        filepath = f"pdfs/{course}/{examName}.pdf"
         response = requests.get(url)
         with open(filepath, "wb") as f:
             f.write(response.content)

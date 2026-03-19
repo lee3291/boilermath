@@ -18,7 +18,7 @@ class Exam(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     course: Mapped[str] = mapped_column(String(7))
     semester: Mapped[str] = mapped_column(String(5))
-    exam_number: Mapped[int] = mapped_column()
+    exam_number: Mapped[str] = mapped_column(String(5))
 
 
 class Problem(Base):
@@ -45,4 +45,5 @@ class ProblemTag(Base):
     tag_id: Mapped[int] = mapped_column(ForeignKey("tag.id"))
 
 
+Base.metadata.drop_all(engine)
 Base.metadata.create_all(engine)

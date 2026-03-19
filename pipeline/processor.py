@@ -1,20 +1,159 @@
 import pymupdf
 import os
 import shutil
+from classifier import classify_page
+import time
+import json
+from PIL import Image
+from storage import upload_image
+from sqlalchemy.orm import Session
+from database import engine, Exam, Problem, Tag, ProblemTag
+from typing import List
+from sqlalchemy import select
 
-course = "MA16200"
+COURSE = "MA16200"
 
-# Clean directory before running.
-# shutil.rmtree(f"output/{course}", ignore_errors=True)
 
-for exam_name in os.listdir(f"pdfs/{course}/"):
-    exam_path = f"pdfs/{course}/{exam_name}"
-    doc = pymupdf.open(exam_path)
-    os.makedirs(f"output/{course}/{exam_name}/pages", exist_ok=True)
+# goes thorugh the pipeline to process each exam for all pdfs.
+# file_name = "16200E1-F2002.png"
+def process_exam(file_name):
+    exam_name = file_name.replace(".pdf", "")  # "16200E1-F2002"
+    parts = exam_name.split("-")  # ["16200E1", "F2002"]
+    exam_number = parts[0][5:]  # "E1"
+    semester = parts[1]  # "F2002"
 
+    exam_dict = {
+        "name": exam_name,
+        "number": exam_number,
+        "semester": semester,
+        "pdf_path": f"pdfs/{COURSE}/{file_name}",
+        "pages_dir": f"output/{COURSE}/{exam_name}/pages",
+        "problems_dir": f"output/{COURSE}/{exam_name}/problems",
+        "s3_prefix": f"{COURSE}/{exam_name}",
+    }
+
+    if exam_already_in_db(exam_dict):
+        print(f"Skipping {exam_name}, already processed")
+        return
+
+    image_paths = generate_page_images(exam_dict)
+
+    for image_path in image_paths:
+        # Gemini API call, wait 12 sec for free plan limit
+        response = classify_page(image_path)
+        time.sleep(12)
+        result = json.loads(response)
+        if not result["valid"]:
+            continue
+        im = Image.open(image_path)
+        for problem in result["problems"]:
+            s3_image_url = crop_and_upload(im, problem, exam_dict)
+            write_to_db(exam_dict, problem, s3_image_url)
+
+
+# checks if an exam has already been processed and is in DB.
+def exam_already_in_db(exam_dict):
+    with Session(engine) as session:
+        exam = session.scalars(
+            select(Exam)
+            .where(Exam.course == COURSE)
+            .where(Exam.semester == exam_dict["semester"])
+            .where(Exam.exam_number == exam_dict["number"])
+        ).first()
+        return exam is not None
+
+
+# creates a directory in output/exam_name/pages/ and creates image files of each page from pdf.
+def generate_page_images(exam_dict) -> List[str]:
+    os.makedirs(exam_dict["pages_dir"], exist_ok=True)
     # skip first page of PDF.
+    doc = pymupdf.open(exam_dict["pdf_path"])
+    image_paths = []
     for i in range(1, doc.page_count):
         page = doc[i]
-        pix = page.get_pixmap()
-        image_path = f"output/{course}/{exam_name}/pages/page-{i}.png"
+        mat = pymupdf.Matrix(2, 2)
+        pix = page.get_pixmap(matrix=mat)
+        image_path = f"{exam_dict['pages_dir']}/page-{i}.png"
         pix.save(image_path)
+        image_paths.append(image_path)
+    return image_paths
+
+
+# with the given problem object, crops the image, saves it as an image and uploads to S3
+def crop_and_upload(im, problem, exam_dict):
+    # get metadata
+    image_width, image_height = im.size
+    number = problem["number"]
+    padding_top = 20
+    padding_bottom = 80
+    top = max(0, int(problem["top"] / 1000 * image_height) - padding_top)
+    bottom = min(
+        image_height, int(problem["bottom"] / 1000 * image_height) + padding_bottom
+    )
+
+    # crop problem image and save
+    cropped = im.crop((0, top, image_width, bottom))
+    problem_path = f"{exam_dict['problems_dir']}/problem-{number}.png"
+    os.makedirs(exam_dict["problems_dir"], exist_ok=True)
+    cropped.save(problem_path)
+
+    # upload to S3 bucket
+    key = f"{exam_dict['s3_prefix']}/problem-{number}.png"
+    url = upload_image(problem_path, key)
+    if url == "Failed":
+        raise Exception(f"Failed to upload {problem_path} to S3")
+
+    return url
+
+
+# writes the problem to the DB and returns the url
+def write_to_db(exam_dict, problem_obj, s3_image_url):
+
+    with Session(engine) as session:
+        # get or create exam
+        exam = session.scalars(
+            select(Exam)
+            .where(Exam.course == COURSE)
+            .where(Exam.semester == exam_dict["semester"])
+            .where(Exam.exam_number == exam_dict["number"])
+        ).first()
+
+        if not exam:
+            exam = Exam(
+                course=COURSE,
+                semester=exam_dict["semester"],
+                exam_number=exam_dict["number"],
+            )
+            session.add(exam)
+            session.commit()
+
+        # write the problem
+        problem = Problem(
+            exam_id=exam.id,
+            problem_number=problem_obj["number"],
+            image_url=s3_image_url,
+        )
+        session.add(problem)
+        session.commit()
+
+        # get or create the tag
+        for tag_name in problem_obj["tags"]:
+
+            tag = session.scalars(select(Tag).where(Tag.name == tag_name)).first()
+
+            if not tag:
+                tag = Tag(name=tag_name)
+                session.add(tag)
+                session.commit()
+
+            problem_tag = ProblemTag(problem_id=problem.id, tag_id=tag.id)
+            session.add(problem_tag)
+            session.commit()
+
+
+# Clean directory before running.
+shutil.rmtree(f"output/{COURSE}", ignore_errors=True)
+
+for file_name in os.listdir(f"pdfs/{COURSE}"):
+    process_exam(file_name)
+    break
