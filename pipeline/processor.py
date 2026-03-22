@@ -173,8 +173,9 @@ def write_to_db(exam_dict, problem_obj, s3_image_url):
 
 # find the true bottom of the problem from the image
 def find_true_bottom(img_array, gemini_bottom, image_height):
+    search_limit = min(gemini_bottom + 200, image_height)
     consecutive_white = 0
-    for y in range(gemini_bottom, image_height):
+    for y in range(gemini_bottom, search_limit):
         row = img_array[y]
         if np.all(row > 250):
             consecutive_white += 1
@@ -182,12 +183,11 @@ def find_true_bottom(img_array, gemini_bottom, image_height):
                 return y - consecutive_white
         else:
             consecutive_white = 0
-    return image_height
+    return min(gemini_bottom + 80, image_height)
 
 
-# Clean directory before running.
-shutil.rmtree(f"output/{COURSE}", ignore_errors=True)
-
-for file_name in os.listdir(f"pdfs/{COURSE}"):
-    process_exam(file_name)
-    break
+if __name__ == "__main__":
+    shutil.rmtree(f"output/{COURSE}", ignore_errors=True)
+    for file_name in os.listdir(f"pdfs/{COURSE}"):
+        if file_name == "16200E3-S2010.pdf":
+            process_exam(file_name)

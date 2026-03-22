@@ -39,6 +39,12 @@ def reprocess_problem(image_path, problem_number, exam_name):
     }
 
     im = Image.open(image_path)
+
+    # debug prints
+    print(f"Gemini bottom for problem {problem_number}: {matched['bottom']}")
+    print(f"Image height: {Image.open(image_path).size[1]}")
+    # dp
+
     new_url = crop_and_upload(im, matched, exam_dict)
 
     # update DB
@@ -149,7 +155,7 @@ def upload_manual_crop(image_path, problem_number, exam_name):
 
 
 if __name__ == "__main__":
-    image_path = "output/MA16200/16200E1-F2002/pages/page-4.png"
-    problem_number = 7
-    exam_name = "16200E1-F2002"
+    image_path = "output/MA16200/16200E3-S2010/pages/page-2.png"
+    problem_number = 3
+    exam_name = "16200E3-S2010"
     reprocess_problem(image_path, problem_number, exam_name)
