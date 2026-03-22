@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from database import engine, Exam, Problem, Tag, ProblemTag
 from typing import List
 from sqlalchemy import select
+import numpy as np
 
 COURSE = "MA16200"
 
@@ -41,12 +42,27 @@ def process_exam(file_name):
     for image_path in image_paths:
         # Gemini API call, wait 12 sec for free plan limit
         response = classify_page(image_path)
-        time.sleep(12)
+
+        # debug print
+        # print(response)
+        # dp
+
         result = json.loads(response)
         if not result["valid"]:
             continue
         im = Image.open(image_path)
+
+        # debug print
+        # image_width, image_height = im.size
+        # print(f"Image height: {image_height}")
+        # dp
+
         for problem in result["problems"]:
+
+            # debug print
+            # print(f"Problem {problem['number']}: top={problem['top']}, bottom={problem['bottom']}")
+            # dp
+
             s3_image_url = crop_and_upload(im, problem, exam_dict)
             write_to_db(exam_dict, problem, s3_image_url)
 
@@ -90,6 +106,8 @@ def crop_and_upload(im, problem, exam_dict):
     bottom = min(
         image_height, int(problem["bottom"] / 1000 * image_height) + padding_bottom
     )
+    im_gray = np.array(im.convert("L"))
+    bottom = find_true_bottom(im_gray, bottom, image_height=image_height)
 
     # crop problem image and save
     cropped = im.crop((0, top, image_width, bottom))
@@ -149,6 +167,20 @@ def write_to_db(exam_dict, problem_obj, s3_image_url):
             problem_tag = ProblemTag(problem_id=problem.id, tag_id=tag.id)
             session.add(problem_tag)
             session.commit()
+
+
+# find the true bottom of the problem from the image
+def find_true_bottom(img_array, gemini_bottom, image_height):
+    consecutive_white = 0
+    for y in range(gemini_bottom, image_height):
+        row = img_array[y]
+        if np.all(row > 250):
+            consecutive_white += 1
+            if consecutive_white >= 20:
+                return y - consecutive_white
+        else:
+            consecutive_white = 0
+    return image_height
 
 
 # Clean directory before running.

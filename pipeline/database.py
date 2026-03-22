@@ -30,6 +30,8 @@ class Problem(Base):
     answer: Mapped[Optional[str]] = (
         mapped_column()
     )  # optional for now but should not be nullible or optional eventually.
+    solution_url: Mapped[Optional[str]] = mapped_column()
+    flagged: Mapped[bool] = mapped_column(default=False, server_default="false")
 
 
 class Tag(Base):
