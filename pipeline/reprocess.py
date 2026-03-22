@@ -33,6 +33,7 @@ def reprocess_problem(image_path, problem_number, exam_name):
         "name": exam_name,
         "number": parts[0][5:],
         "semester": parts[1],
+        "course": f"MA{parts[0][:5]}",
         "problems_dir": f"output/MA{parts[0][:5]}/{exam_name}/problems",
         "s3_prefix": f"MA{parts[0][:5]}/{exam_name}",
     }
@@ -65,10 +66,14 @@ def reprocess_problem(image_path, problem_number, exam_name):
         # get or create the tag
         for tag_name in matched["tags"]:
 
-            tag = session.scalars(select(Tag).where(Tag.name == tag_name)).first()
+            tag = session.scalars(
+                select(Tag)
+                .where(Tag.name == tag_name)
+                .where(Tag.course == exam_dict["course"])
+            ).first()
 
             if not tag:
-                tag = Tag(name=tag_name)
+                tag = Tag(name=tag_name, course=exam_dict["course"])
                 session.add(tag)
                 session.commit()
 
@@ -87,6 +92,7 @@ def upload_manual_crop(image_path, problem_number, exam_name):
         "name": exam_name,
         "number": parts[0][5:],
         "semester": parts[1],
+        "course": f"MA{parts[0][:5]}",
         "problems_dir": f"output/MA{parts[0][:5]}/{exam_name}/problems",
         "s3_prefix": f"MA{parts[0][:5]}/{exam_name}",
     }
@@ -122,10 +128,14 @@ def upload_manual_crop(image_path, problem_number, exam_name):
         # get or create the tag
         for tag_name in result["tags"]:
 
-            tag = session.scalars(select(Tag).where(Tag.name == tag_name)).first()
+            tag = session.scalars(
+                select(Tag)
+                .where(Tag.name == tag_name)
+                .where(Tag.course == exam_dict["course"])
+            ).first()
 
             if not tag:
-                tag = Tag(name=tag_name)
+                tag = Tag(name=tag_name, course=exam_dict["course"])
                 session.add(tag)
                 session.commit()
 

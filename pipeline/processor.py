@@ -157,10 +157,12 @@ def write_to_db(exam_dict, problem_obj, s3_image_url):
         # get or create the tag
         for tag_name in problem_obj["tags"]:
 
-            tag = session.scalars(select(Tag).where(Tag.name == tag_name)).first()
+            tag = session.scalars(
+                select(Tag).where(Tag.name == tag_name).where(Tag.course == COURSE)
+            ).first()
 
             if not tag:
-                tag = Tag(name=tag_name)
+                tag = Tag(name=tag_name, course=COURSE)
                 session.add(tag)
                 session.commit()
 

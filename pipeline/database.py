@@ -1,4 +1,11 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
+from sqlalchemy import (
+    create_engine,
+    Column,
+    Integer,
+    String,
+    ForeignKey,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session
 from typing import Optional
 from dotenv import load_dotenv
@@ -36,8 +43,10 @@ class Problem(Base):
 
 class Tag(Base):
     __tablename__ = "tag"
+    __table_args__ = (UniqueConstraint("name", "course"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(unique=True)
+    name: Mapped[str] = mapped_column()
+    course: Mapped[str] = mapped_column(String(7))
 
 
 class ProblemTag(Base):
