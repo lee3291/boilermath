@@ -23,8 +23,10 @@ def classify_page(image_path):
     - Identify the mathematical concepts as tags (e.g. "vectors", "integration by parts", "Taylor series")
     - Provide a bounding box with top and bottom y-values normalized to 0-1000 (0 = top of image, 1000 = bottom)
     - The bounding box MUST include the full problem statement, all sub-parts, all answer choices, and any figures or diagrams
-    - Be GENEROUS with the bounding box — extend it slightly beyond what you think is needed to avoid cutting off content
-    - Problems end where the next large whitespace gap begins
+    - The bounding box must end EXACTLY where the last answer choice ends
+    - Do NOT extend the bounding box beyond the last answer choice
+    - Do NOT include any whitespace after the last answer choice
+    - Do NOT include any part of the next problem
 
     Return JSON only, no markdown, no explanation:
     {
@@ -45,6 +47,7 @@ def classify_page(image_path):
             types.Part.from_bytes(data=image_data, mime_type="image/png"),
             prompt,
         ],
+        config=types.GenerateContentConfig(temperature=0),
     )
 
     return (
@@ -76,6 +79,7 @@ def classify_problem(image_path):
             types.Part.from_bytes(data=image_data, mime_type="image/png"),
             prompt,
         ],
+        config=types.GenerateContentConfig(temperature=0),
     )
 
     return (

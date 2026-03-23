@@ -57,13 +57,13 @@ def process_exam(file_name):
         # print(f"Image height: {image_height}")
         # dp
 
-        for problem in result["problems"]:
+        for j, problem in enumerate(result["problems"]):
 
             # debug print
             # print(f"Problem {problem['number']}: top={problem['top']}, bottom={problem['bottom']}")
             # dp
 
-            s3_image_url = crop_and_upload(im, problem, exam_dict)
+            s3_image_url = crop_and_upload(im, result["problems"], j, exam_dict)
             write_to_db(exam_dict, problem, s3_image_url)
 
 
@@ -96,18 +96,23 @@ def generate_page_images(exam_dict) -> List[str]:
 
 
 # with the given problem object, crops the image, saves it as an image and uploads to S3
-def crop_and_upload(im, problem, exam_dict):
+def crop_and_upload(im, problems, problem_index, exam_dict):
     # get metadata
+    problem = problems[problem_index]
     image_width, image_height = im.size
     number = problem["number"]
     padding_top = 20
-    padding_bottom = 80
+
     top = max(0, int(problem["top"] / 1000 * image_height) - padding_top)
-    bottom = min(
-        image_height, int(problem["bottom"] / 1000 * image_height) + padding_bottom
-    )
-    im_gray = np.array(im.convert("L"))
-    bottom = find_true_bottom(im_gray, bottom, image_height=image_height)
+
+    if problem_index + 1 < len(problems):
+        # use next problem's top as this problem's bottom
+        bottom = int(problems[problem_index + 1]["top"] / 1000 * image_height) - 5
+    else:
+        # last problem on page, use find_true_bottom
+        im_gray = np.array(im.convert("L"))
+        gemini_bottom = int(problem["bottom"] / 1000 * image_height) + 80
+        bottom = find_true_bottom(im_gray, gemini_bottom, image_height)
 
     # crop problem image and save
     cropped = im.crop((0, top, image_width, bottom))
@@ -173,7 +178,7 @@ def write_to_db(exam_dict, problem_obj, s3_image_url):
 
 # find the true bottom of the problem from the image
 def find_true_bottom(img_array, gemini_bottom, image_height):
-    search_limit = min(gemini_bottom + 200, image_height)
+    search_limit = min(gemini_bottom + 60, image_height)
     consecutive_white = 0
     for y in range(gemini_bottom, search_limit):
         row = img_array[y]
@@ -187,7 +192,7 @@ def find_true_bottom(img_array, gemini_bottom, image_height):
 
 
 if __name__ == "__main__":
-    shutil.rmtree(f"output/{COURSE}", ignore_errors=True)
+    # shutil.rmtree(f"output/{COURSE}", ignore_errors=True)
     for file_name in os.listdir(f"pdfs/{COURSE}"):
-        if file_name == "16200E3-S2010.pdf":
-            process_exam(file_name)
+        # if file_name == "16200E3-S2010.pdf":
+        process_exam(file_name)
