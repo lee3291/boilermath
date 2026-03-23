@@ -56,5 +56,7 @@ class ProblemTag(Base):
     tag_id: Mapped[int] = mapped_column(ForeignKey("tag.id"))
 
 
-Base.metadata.drop_all(engine)
-Base.metadata.create_all(engine)
+
+if __name__ == "__main__":
+    # Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
