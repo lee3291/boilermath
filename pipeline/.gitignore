@@ -4,6 +4,5 @@ __pycache__/
 .env
 .vscode/
 pdfs/
-.DS_Store
 output/
-*.code-workspace
+.DS_Store
