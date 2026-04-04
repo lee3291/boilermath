@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from sqlalchemy import select, func
 from backend.database import SessionDep
 from backend.models import Exam, Tag
 from backend.models import Problem as ProblemModel
 from backend.schemas import Problem as ProblemSchema
+from backend.schemas import ProblemDetail
 from typing import Optional, List
 
 router = APIRouter()
@@ -42,3 +43,12 @@ async def read_problems(
 
     problems = session.scalars(query.offset(skip).limit(limit)).all()
     return problems
+
+
+@router.get("/problems/{id}", response_model=ProblemDetail)
+async def read_problem_detail(id: int, session: SessionDep):
+    problem = session.scalars(select(ProblemModel).where(ProblemModel.id == id)).first()
+    if problem is None:
+        raise HTTPException(status_code=404, detail="Problem not found")
+
+    return problem
