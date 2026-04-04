@@ -52,3 +52,19 @@ async def read_problem_detail(id: int, session: SessionDep):
         raise HTTPException(status_code=404, detail="Problem not found")
 
     return problem
+
+
+@router.patch("/problems/{id}/flag")
+async def update_flag(session: SessionDep, id: int):
+    problem = session.scalars(select(ProblemModel).where(ProblemModel.id == id)).first()
+    if problem is None:
+        raise HTTPException(status_code=404, detail="Problem not found")
+
+    problem.flagged = True
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update flag")
+
+    return {"flagged": True}
