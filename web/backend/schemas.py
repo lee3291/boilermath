@@ -1,25 +1,27 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 
 
 class Tag(BaseModel):
     id: int
     name: str
-    # should there be course? I mean the problem and the exam info will have the course. identifiying the tag is enough with the id.
+    model_config = ConfigDict(from_attributes=True)
 
 
-class ExamInfo(BaseModel):
+class Exam(BaseModel):
     id: int
     course: str
     semester: str
     exam_number: str
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Problem(BaseModel):
     id: int
     problem_number: int
-    exam_info: ExamInfo
+    exam: Exam
     tags: List[Tag]
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProblemDetail(Problem):
@@ -27,3 +29,4 @@ class ProblemDetail(Problem):
     answer: Optional[str] = None
     solution_url: Optional[str] = None
     flagged: bool
+    model_config = ConfigDict(from_attributes=True)
